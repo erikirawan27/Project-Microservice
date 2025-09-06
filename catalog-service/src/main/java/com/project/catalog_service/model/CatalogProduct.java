@@ -20,7 +20,7 @@ import java.util.List;
 @Document(indexName = "products")
 public class CatalogProduct {
     @Id
-    private String id;
+    private Long id;
 
     private String name;
 

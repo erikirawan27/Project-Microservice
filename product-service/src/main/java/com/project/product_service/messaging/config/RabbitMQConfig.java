@@ -11,23 +11,63 @@ import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.Map;
+
 import static com.project.product_service.messaging.config.RabbitMQConstants.*;
 
 @Configuration
 public class RabbitMQConfig {
+
     @Bean
     public DirectExchange productExchange() {
         return new DirectExchange(PRODUCT_EXCHANGE);
     }
 
+    // Quese(queue, durable,exclusive,autoDelete)
     @Bean
     public Queue productCreatedQueue() {
-        return new Queue(PRODUCT_CREATED_QUEUE);
+        return new Queue(PRODUCT_CREATED_QUEUE, true, false, false, Map.of(
+                "x-dead-letter-exchange", PRODUCT_EXCHANGE,
+                "x-dead-letter-routing-key", PRODUCT_CREATED + ".dlq"
+        ));
     }
 
     @Bean
-    public Binding productBinding() {
-        return BindingBuilder.bind(productCreatedQueue()).to(productExchange()).with(PRODUCT_CREATED);
+    public Queue productEditedQueue() {
+        return new Queue(PRODUCT_EDITED_QUEUE, true, false, false, Map.of(
+                "x-dead-letter-exchange", PRODUCT_EXCHANGE,
+                "x-dead-letter-routing-key", PRODUCT_EDITED + ".dlq"
+        ));
+    }
+
+    @Bean
+    public Binding productCreatedBinding() {
+        return BindingBuilder
+                .bind(productCreatedQueue())
+                .to(productExchange())
+                .with(PRODUCT_CREATED);
+    }
+
+    @Bean
+    public Binding productEditedBinding() {
+        return BindingBuilder
+                .bind(productEditedQueue())
+                .to(productExchange())
+                .with(PRODUCT_EDITED);
+    }
+
+    //DLQ to store failed message
+    // DLQs
+    @Bean Queue productCreatedDlq() { return new Queue(PRODUCT_CREATED_QUEUE + ".dlq", true); }
+    @Bean Queue productEditedDlq()  { return new Queue(PRODUCT_EDITED_QUEUE  + ".dlq", true); }
+
+    @Bean
+    public Binding productCreatedDlqBinding() {
+        return BindingBuilder.bind(productCreatedDlq()).to(productExchange()).with(PRODUCT_CREATED + ".dlq");
+    }
+    @Bean
+    public Binding productEditedDlqBinding() {
+        return BindingBuilder.bind(productEditedDlq()).to(productExchange()).with(PRODUCT_EDITED + ".dlq");
     }
 
     @Bean
@@ -36,9 +76,11 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
-        RabbitTemplate template = new RabbitTemplate(connectionFactory);
-        template.setMessageConverter(jsonMessageConverter());
-        return template;
+    public RabbitTemplate rabbitTemplate(ConnectionFactory cf, MessageConverter mc){
+        RabbitTemplate rt = new RabbitTemplate();
+        rt.setConnectionFactory(cf);
+        rt.setMessageConverter(mc);
+        rt.setMandatory(true);
+        return rt;
     }
 }

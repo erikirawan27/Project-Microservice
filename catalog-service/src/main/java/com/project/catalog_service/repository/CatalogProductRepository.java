@@ -7,6 +7,6 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface CatalogProductRepository extends ElasticsearchRepository<CatalogProduct, String> {
+public interface CatalogProductRepository extends ElasticsearchRepository<CatalogProduct, Long> {
     List<CatalogProduct> findByNameContainingIgnoreCase(String name);
 }

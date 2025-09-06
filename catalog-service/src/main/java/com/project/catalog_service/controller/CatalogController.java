@@ -32,7 +32,7 @@ public class CatalogController {
     }
 
     @DeleteMapping("/{id}")
-    public void deleteCatalog(@PathVariable String id) {
+    public void deleteCatalog(@PathVariable Long id) {
         catalogService.deleteProduct(id);
     }
 }

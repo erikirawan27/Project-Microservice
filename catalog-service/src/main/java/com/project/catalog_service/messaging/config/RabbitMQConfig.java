@@ -4,12 +4,14 @@ import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.Map;
 
 import static com.project.catalog_service.messaging.config.RabbitMQConstants.*;
 
@@ -21,9 +23,21 @@ public class RabbitMQConfig {
         return new DirectExchange(PRODUCT_EXCHANGE);
     }
 
+    // Quese(queue, durable,exclusive,autoDelete)
     @Bean
     public Queue productCreatedQueue() {
-        return new Queue(PRODUCT_CREATED_QUEUE); // durable queue
+        return new Queue(PRODUCT_CREATED_QUEUE, true, false, false, Map.of(
+                "x-dead-letter-exchange", PRODUCT_EXCHANGE,
+                "x-dead-letter-routing-key", PRODUCT_CREATED + ".dlq"
+        ));
+    }
+
+    @Bean
+    public Queue productEditedQueue() {
+        return new Queue(PRODUCT_EDITED_QUEUE, true, false, false, Map.of(
+                "x-dead-letter-exchange", PRODUCT_EXCHANGE,
+                "x-dead-letter-routing-key", PRODUCT_EDITED + ".dlq"
+        ));
     }
 
     @Bean
@@ -35,14 +49,42 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public Binding productEditedBinding() {
+        return BindingBuilder
+                .bind(productEditedQueue())
+                .to(productExchange())
+                .with(PRODUCT_EDITED);
+    }
+
+    //DLQ to store failed message
+    // DLQs
+    @Bean Queue productCreatedDlq() { return new Queue(PRODUCT_CREATED_QUEUE + ".dlq", true); }
+    @Bean Queue productEditedDlq()  { return new Queue(PRODUCT_EDITED_QUEUE  + ".dlq", true); }
+
+    @Bean
+    public Binding productCreatedDlqBinding() {
+        return BindingBuilder.bind(productCreatedDlq()).to(productExchange()).with(PRODUCT_CREATED + ".dlq");
+    }
+    @Bean
+    public Binding productEditedDlqBinding() {
+        return BindingBuilder.bind(productEditedDlq()).to(productExchange()).with(PRODUCT_EDITED + ".dlq");
+    }
+
+    @Bean
     public MessageConverter jsonMessageConverter() {
         return new Jackson2JsonMessageConverter();
     }
 
     @Bean
-    public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
-        RabbitTemplate template = new RabbitTemplate(connectionFactory);
-        template.setMessageConverter(jsonMessageConverter());
-        return template;
+    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(
+            ConnectionFactory connectionFactory, MessageConverter mc) {
+        var f = new SimpleRabbitListenerContainerFactory();
+        f.setConnectionFactory(connectionFactory);
+        f.setMessageConverter(mc);
+        f.setPrefetchCount(20);
+        f.setConcurrentConsumers(2);
+        f.setMaxConcurrentConsumers(8);
+        f.setDefaultRequeueRejected(false); // handle requeue
+        return f;
     }
 }

@@ -1,6 +1,6 @@
 package com.project.product_service.messaging.publisher;
 
-import com.project.product_service.dto.ProductCreatedEvent;
+import com.project.product_service.dto.ProductEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -18,8 +18,20 @@ public class ProductEventPublisher {
         this.rabbitTemplate = rabbitTemplate;
     }
 
-    public void notifyProductCreated(ProductCreatedEvent productDto) {
-        LOGGER.info("ProductCreatedEvent sent: {}", productDto.toString());
-        rabbitTemplate.convertAndSend(PRODUCT_EXCHANGE, PRODUCT_CREATED, productDto);
+    public void notifyProductCreated(ProductEvent productDto) {
+        LOGGER.info("ProductEvent sent: {}", productDto.toString());
+        rabbitTemplate.convertAndSend(PRODUCT_EXCHANGE, PRODUCT_CREATED, productDto, message -> {
+            message.getMessageProperties().setMessageId("product-created-"+productDto.id());
+            return message;
+        });
     }
+
+    public void notifyProductEdited(ProductEvent productDto) {
+        LOGGER.info("notifyProductEdited sent: {}", productDto.toString());
+        rabbitTemplate.convertAndSend(PRODUCT_EXCHANGE, PRODUCT_EDITED, productDto, message -> {
+            message.getMessageProperties().setMessageId("product-edited-"+productDto.id());
+            return message;
+        });
+    }
+
 }
