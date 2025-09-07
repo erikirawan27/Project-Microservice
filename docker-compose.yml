@@ -59,10 +59,12 @@ services:
     ports:
       - "8082:8082"
     depends_on:
-      - product-service
-      - mysql
-      - rabbitmq
-      - elasticsearch
+      rabbitmq:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      product-service:
+        condition: service_started
 
   order-service:
     build:
