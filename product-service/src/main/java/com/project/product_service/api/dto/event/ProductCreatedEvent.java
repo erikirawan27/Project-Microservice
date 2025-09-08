@@ -6,7 +6,7 @@ import java.time.Instant;
 import java.util.List;
 
 
-public record ProductCreatedEven(
+public record ProductCreatedEvent(
         Long productId,
         String name,
         String description,

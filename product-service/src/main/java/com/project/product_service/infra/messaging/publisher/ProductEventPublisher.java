@@ -1,6 +1,6 @@
 package com.project.product_service.infra.messaging.publisher;
 
-import com.project.product_service.api.dto.event.ProductCreatedEven;
+import com.project.product_service.api.dto.event.ProductCreatedEvent;
 import com.project.product_service.api.dto.event.ProductDeletedEvent;
 import com.project.product_service.api.dto.event.ProductEditedEvent;
 import org.slf4j.Logger;
@@ -20,7 +20,7 @@ public class ProductEventPublisher {
         this.rabbitTemplate = rabbitTemplate;
     }
 
-    public void notifyProductCreated(ProductCreatedEven event) {
+    public void notifyProductCreated(ProductCreatedEvent event) {
         LOGGER.info("ProductEvent sent: {}", event.toString());
         rabbitTemplate.convertAndSend(PRODUCT_EXCHANGE, PRODUCT_CREATED, event, message -> {
             message.getMessageProperties().setMessageId("product-created-"+event.eventId());

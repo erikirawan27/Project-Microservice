@@ -1,6 +1,6 @@
 package com.project.catalog_service.infra.messaging.consumer;
 
-import com.project.catalog_service.api.dto.event.ProductCreatedEven;
+import com.project.catalog_service.api.dto.event.ProductCreatedEvent;
 import com.project.catalog_service.api.dto.event.ProductDeletedEvent;
 import com.project.catalog_service.api.dto.event.ProductEditedEvent;
 import com.project.catalog_service.domain.CatalogProduct;
@@ -23,7 +23,7 @@ public class ProductEventConsumer {
     }
 
     @RabbitListener(queues = PRODUCT_CREATED_QUEUE, containerFactory = "rabbitListenerContainerFactory")
-    public void handleProductCreated(ProductCreatedEven event) {
+    public void handleProductCreated(ProductCreatedEvent event) {
         LOGGER.info("ProductCreatedEvent received: {}", event);
 
         CatalogProduct product = new CatalogProduct();

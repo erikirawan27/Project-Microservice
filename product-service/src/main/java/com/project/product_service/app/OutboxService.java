@@ -1,7 +1,7 @@
 package com.project.product_service.app;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.project.product_service.api.dto.event.ProductCreatedEven;
+import com.project.product_service.api.dto.event.ProductCreatedEvent;
 import com.project.product_service.api.dto.event.ProductDeletedEvent;
 import com.project.product_service.api.dto.event.ProductEditedEvent;
 import com.project.product_service.domain.OutboxEvent;
@@ -38,7 +38,7 @@ public class OutboxService {
             try {
                 switch (outbox.getEventType()) {
                     case "PRODUCT_CREATED" :
-                        ProductCreatedEven eventCreated = objectMapper.readValue(outbox.getPayload(), ProductCreatedEven.class);
+                        ProductCreatedEvent eventCreated = objectMapper.readValue(outbox.getPayload(), ProductCreatedEvent.class);
                         productEventPublisher.notifyProductCreated(eventCreated);
                         break;
                     case "PRODUCT_EDITED" :

@@ -1,8 +1,8 @@
 package com.project.product_service.api.controller;
 
+import com.project.product_service.api.dto.request.ProductRequest;
 import com.project.product_service.app.ProductService;
 import com.project.product_service.domain.Product;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,14 +28,14 @@ public class ProductController {
         return productService.getProductById(id);
     }
 
-    @PostMapping
-    public ResponseEntity<Product> createProduct(@RequestBody Product product) {
-        Product createdProd =  productService.createProduct(product);
-        return new ResponseEntity<>(createdProd, HttpStatus.CREATED);
+    @PostMapping()
+    public ResponseEntity<List<Product>> createProductBulk(@RequestBody List<ProductRequest> requests) {
+        List<Product> products = productService.createProductBulk(requests);
+        return ResponseEntity.ok(products);
     }
 
     @PutMapping("/{id}")
-    public Product editProduct(@PathVariable Long id, @RequestBody Product product) {
+    public Product editProduct(@PathVariable Long id, @RequestBody ProductRequest product) {
         return productService.editProduct(id, product);
     }
 

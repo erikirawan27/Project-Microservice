@@ -2,9 +2,10 @@ package com.project.product_service.app;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.project.product_service.api.dto.event.ProductCreatedEven;
+import com.project.product_service.api.dto.event.ProductCreatedEvent;
 import com.project.product_service.api.dto.event.ProductDeletedEvent;
 import com.project.product_service.api.dto.event.ProductEditedEvent;
+import com.project.product_service.api.dto.request.ProductRequest;
 import com.project.product_service.domain.OutboxEvent;
 import com.project.product_service.infra.db.OutboxEventRepository;
 import com.project.product_service.infra.messaging.publisher.ProductEventPublisher;
@@ -16,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -44,68 +46,72 @@ public class ProductService {
     }
 
     @Transactional
-    public Product createProduct(Product product) {
-        Product saved = productRepository.save(product);
+    public List<Product> createProductBulk(List<ProductRequest> requestBulk) {
+        List<Product> savedProducts = new ArrayList<>();
+        for (ProductRequest req : requestBulk) {
+            Product product = new Product();
+            product.setId(req.getId());
+            mapToEntity(product, req);
+            Product saved = productRepository.save(product);
+            savedProducts.add(saved);
 
-        OutboxEvent outbox = new OutboxEvent();
-        outbox.setAggregateId(saved.getId().toString());
-        outbox.setEventType("PRODUCT_CREATED");
-        outbox.setProcessed(false);
-        outbox.setRetryCount(0);
-        outboxRepository.save(outbox);
+            OutboxEvent outbox = new OutboxEvent();
+            outbox.setAggregateId(saved.getId().toString());
+            outbox.setEventType("PRODUCT_CREATED");
+            outbox.setProcessed(false);
+            outbox.setRetryCount(0);
+            outboxRepository.save(outbox);
 
-        List<String> tags = List.of("new");
-        ProductCreatedEven event = new ProductCreatedEven(
-                saved.getId(),
-                saved.getName(),
-                saved.getDescription(),
-                saved.getPrice(),
-                tags,
-                outbox.getId(),
-                Instant.now()
-        );
-
-        try {
-            String payload = objectMapper.writeValueAsString(event);
-            outbox.setPayload(payload);
+            List<String> tags = req.getTags();
+            ProductCreatedEvent event = new ProductCreatedEvent(
+                    saved.getId(),
+                    saved.getName(),
+                    saved.getDescription(),
+                    saved.getPrice(),
+                    tags,
+                    outbox.getId(),
+                    Instant.now()
+            );
 
             try {
-                productEventPublisher.notifyProductCreated(event);
-                outbox.setProcessed(true);
-            } catch (Exception mqEx) {
-                LOGGER.warn("RabbitMQ publish failed, will retry later: {}", mqEx.getMessage());
-            }
+                String payload = objectMapper.writeValueAsString(event);
+                outbox.setPayload(payload);
 
-            outboxRepository.save(outbox);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException("Failed to serialize event", e);
+                try {
+                    productEventPublisher.notifyProductCreated(event);
+                    outbox.setProcessed(true);
+                } catch (Exception mqEx) {
+                    LOGGER.warn("RabbitMQ publish failed, will retry later: {}", mqEx.getMessage());
+                }
+
+                outboxRepository.save(outbox);
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException("Failed to serialize event", e);
+            }
         }
-        return saved;
+        return savedProducts;
     }
 
     @Transactional
-    public Product editProduct(Long id, Product product) {
-        Product productOld = productRepository.findById(id)
+    public Product editProduct(Long id, ProductRequest req) {
+        Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product with ID " + id + " not found"));
 
-        List<String> tags = List.of("new");
-        productOld.setName(product.getName());
-        productOld.setDescription(product.getDescription());
-        productOld.setPrice(product.getPrice());
-        productOld.setStockQuantity(product.getStockQuantity());
+        mapToEntity(product, req);
 
         OutboxEvent outbox = new OutboxEvent();
-        outbox.setAggregateId(productOld.getId().toString());
+        outbox.setAggregateId(product.getId().toString());
         outbox.setEventType("PRODUCT_EDITED");
         outbox.setProcessed(false);
         outbox.setRetryCount(0);
         outboxRepository.save(outbox);
 
+        List<String> tags = req.getTags();
         ProductEditedEvent event = new ProductEditedEvent(
-                productOld.getId(),
-                productOld.getName(),
-                productOld.getDescription(),
-                productOld.getPrice(),
+                product.getId(),
+                product.getName(),
+                product.getDescription(),
+                product.getPrice(),
                 tags,
                 outbox.getId(),
                 Instant.now()
@@ -127,15 +133,15 @@ public class ProductService {
             throw new RuntimeException("Failed to serialize event", e);
         }
 
-        return productRepository.save(productOld);
+        return productRepository.save(product);
     }
 
     @Transactional
     public void deleteProduct(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product with ID " + id + " not found"));
-        if (product != null) {
 
+        if (product != null) {
             OutboxEvent outbox = new OutboxEvent();
             outbox.setAggregateId(id.toString());
             outbox.setEventType("PRODUCT_DELETED");
@@ -161,6 +167,13 @@ public class ProductService {
             }
             outboxRepository.save(outbox);
         }
+    }
+
+    private void mapToEntity(Product product, ProductRequest req) {
+        product.setName(req.getName());
+        product.setPrice(req.getPrice());
+        product.setDescription(req.getDescription());
+        product.setStockQuantity(req.getStockQuantity());
     }
 
 }
